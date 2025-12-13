@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import pandas as pd
 import boto3
 import os
+from contextlib import asynccontextmanager
 
 # Import inference pipeline
 from src.inference_pipeline.inference import predict
@@ -12,7 +13,10 @@ from src.inference_pipeline.inference import predict
 # Config
 S3_BUCKET = os.getenv("S3_BUCKET", "housing-regression-data31")
 REGION = os.getenv("AWS_REGION", "ap-south-2")
-s3 = boto3.client("s3", region_name=REGION)
+s3 = None
+MODEL_PATH: Path | None = None
+TRAIN_FE_PATH: Path | None = None
+TRAIN_FEATURE_COLUMNS: list[str] | None = None
 
 
 def load_from_s3(key, local_path):
@@ -27,22 +31,43 @@ def load_from_s3(key, local_path):
 # Paths
 
 
-# Downloads model + training features from S3 if not cached.
-MODEL_PATH = Path(load_from_s3(
-    "models/xgb_best_model.pkl", "models/xgb_best_model.pkl"))
-TRAIN_FE_PATH = Path(load_from_s3("processed/feature_engineered_train.csv",
-                     "data/processed/feature_engineered_train.csv"))
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global s3, MODEL_PATH, TRAIN_FE_PATH, TRAIN_FEATURE_COLUMNS
 
-# Load expected training features for alignment
-if TRAIN_FE_PATH.exists():
-    _train_cols = pd.read_csv(TRAIN_FE_PATH, nrows=1)
-    TRAIN_FEATURE_COLUMNS = [c for c in _train_cols.columns if c != "price"]
-else:
-    TRAIN_FEATURE_COLUMNS = None
+    print("🚀 Lifespan started")
+
+    # create S3 client at runtime
+    s3 = boto3.client("s3", region_name=REGION)
+    print("✅ S3 client created")
+
+    # download artifacts
+    MODEL_PATH = Path(load_from_s3(
+        "models/xgb_best_model.pkl",
+        "models/xgb_best_model.pkl"
+    ))
+    print("✅ Model loaded:", MODEL_PATH)
+
+    TRAIN_FE_PATH = Path(load_from_s3(
+        "processed/feature_engineered_train.csv",
+        "data/processed/feature_engineered_train.csv"
+    ))
+
+    # load expected feature columns
+    if TRAIN_FE_PATH.exists():
+        _train_cols = pd.read_csv(TRAIN_FE_PATH, nrows=1)
+        TRAIN_FEATURE_COLUMNS = [
+            c for c in _train_cols.columns if c != "price"
+        ]
+
+    yield
 
 # App
 # Instantiates the FastAPI app.
-app = FastAPI(title="Housing Regression API")
+app = FastAPI(
+    title="Housing Regression API",
+    lifespan=lifespan
+)
 
 
 @app.get("/")
@@ -54,31 +79,62 @@ def root():
 
 @app.get("/health")
 def health():
-    status: Dict[str, Any] = {"model_path": str(MODEL_PATH)}
+    # App started, but model not ready yet
+    if MODEL_PATH is None:
+        return {
+            "status": "starting",
+            "message": "Model not loaded yet"
+        }
+
+    # Model path exists check
     if not MODEL_PATH.exists():
-        status["status"] = "unhealthy"
-        status["error"] = "Model not found"
-    else:
-        status["status"] = "healthy"
-        if TRAIN_FEATURE_COLUMNS:
-            status["n_features_expected"] = len(TRAIN_FEATURE_COLUMNS)
-    return status
+        return {
+            "status": "unhealthy",
+            "error": f"Model not found at {MODEL_PATH}"
+        }
+
+    return {
+        "status": "healthy",
+        "model_path": str(MODEL_PATH),
+        "n_features_expected": (
+            len(TRAIN_FEATURE_COLUMNS)
+            if TRAIN_FEATURE_COLUMNS is not None
+            else None
+        )
+    }
 
 # Prediction Endpoint: This is the core ML serving endpoint.
 
 
 @app.post("/predict")
 def predict_batch(data: List[dict]):
+    # ⛔ Model not ready yet
+    if MODEL_PATH is None:
+        return {
+            "status": "starting",
+            "message": "Model not loaded yet"
+        }
+
     if not MODEL_PATH.exists():
-        return {"error": f"Model not found at {str(MODEL_PATH)}"}
+        return {
+            "status": "unhealthy",
+            "error": f"Model not found at {MODEL_PATH}"
+        }
 
     df = pd.DataFrame(data)
     if df.empty:
         return {"error": "No data provided"}
 
+    # 🔒 Align features safely
+    if TRAIN_FEATURE_COLUMNS is not None:
+        df = df.reindex(columns=TRAIN_FEATURE_COLUMNS, fill_value=0)
+
     preds_df = predict(df, model_path=MODEL_PATH)
 
-    resp = {"predictions": preds_df["predicted_price"].astype(float).tolist()}
+    resp = {
+        "predictions": preds_df["predicted_price"].astype(float).tolist()
+    }
+
     if "actual_price" in preds_df.columns:
         resp["actuals"] = preds_df["actual_price"].astype(float).tolist()
 
