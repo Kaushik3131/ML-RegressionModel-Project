@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import plotly.express as px
-import boto3
+# import boto3
 import os
 from pathlib import Path
 
@@ -10,52 +10,24 @@ from pathlib import Path
 # Config
 # ============================
 API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000/predict")
-S3_BUCKET = os.getenv("S3_BUCKET", "housing-regression-data31")
-REGION = os.getenv("AWS_REGION", "ap-south-2")
-
-s3 = boto3.client("s3", region_name=REGION)
-
-
-def load_from_s3(key, local_path):
-    """Download from S3 if not already cached locally."""
-    local_path = Path(local_path)
-    if not local_path.exists():
-        os.makedirs(local_path.parent, exist_ok=True)
-        st.info(f"📥 Downloading {key} from S3…")
-        s3.download_file(S3_BUCKET, key, str(local_path))
-    return str(local_path)
-
-
-# Paths (ensure available locally by fetching from S3 if missing)
-HOLDOUT_ENGINEERED_PATH = load_from_s3(
-    "processed/feature_engineered_holdout.csv",
-    "data/processed/feature_engineered_holdout.csv"
-)
-HOLDOUT_META_PATH = load_from_s3(
-    "processed/cleaning_holdout.csv",
-    "data/processed/cleaning_holdout.csv"
-)
 
 # ============================
 # Data loading
 # ============================
+HOLDOUT_URL = API_URL.replace("/predict", "/holdout_data")
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_data():
-    fe = pd.read_csv(HOLDOUT_ENGINEERED_PATH)
-    meta = pd.read_csv(HOLDOUT_META_PATH, parse_dates=["date"])[
-        ["date", "city_full"]]
+    resp = requests.get("http://fastapi-api:8000/holdout_data", timeout=60)
+    resp.raise_for_status()
+    data = resp.json()
 
-    if len(fe) != len(meta):
-        st.warning(
-            "⚠️ Engineered and meta holdout lengths differ. Aligning by index.")
-        min_len = min(len(fe), len(meta))
-        fe = fe.iloc[:min_len].copy()
-        meta = meta.iloc[:min_len].copy()
+    fe = pd.DataFrame(data["features"])
+    meta = pd.DataFrame(data["meta"])
 
     disp = pd.DataFrame(index=fe.index)
-    disp["date"] = meta["date"]
+    disp["date"] = pd.to_datetime(meta["date"])
     disp["region"] = meta["city_full"]
     disp["year"] = disp["date"].dt.year
     disp["month"] = disp["date"].dt.month
@@ -64,7 +36,8 @@ def load_data():
     return fe, disp
 
 
-fe_df, disp_df = load_data()
+with st.spinner("Loading housing data…"):
+    fe_df, disp_df = load_data()
 
 # ============================
 # UI
@@ -101,18 +74,23 @@ if st.button("Show Predictions 🚀"):
         try:
             resp = requests.post(API_URL, json=payload, timeout=60)
             resp.raise_for_status()
+
             out = resp.json()
-            preds = out.get("predictions", [])
-            actuals = out.get("actuals", None)
+
+            if "predictions" not in out:
+                st.warning(out.get("message", "Model not ready yet"))
+                st.stop()
+
+            preds = out["predictions"]
 
             view = disp_df.loc[idx, ["date", "region", "actual_price"]].copy()
             view = view.sort_values("date")
-            view["prediction"] = pd.Series(
-                preds, index=view.index).astype(float)
 
-            if actuals is not None and len(actuals) == len(view):
-                view["actual_price"] = pd.Series(
-                    actuals, index=view.index).astype(float)
+            if len(preds) != len(view):
+                st.error("Prediction length mismatch. Try again in a moment.")
+                st.stop()
+
+            view["prediction"] = preds
 
             # Metrics
             mae = (view["prediction"] - view["actual_price"]).abs().mean()
