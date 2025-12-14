@@ -52,7 +52,7 @@ jobs:
       #   run: |
       #     aws ecs update-service \
       #       --cluster housing-api-cluster-ecs \
-      #       --service ml-api-task-service-0jhrc0ic \
+      #       --service ml-api-task-service \
       #       --force-new-deployment
 
       # # Deploy to ECS - Streamlit

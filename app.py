@@ -19,7 +19,7 @@ HOLDOUT_URL = API_URL.replace("/predict", "/holdout_data")
 
 @st.cache_data(show_spinner=False)
 def load_data():
-    resp = requests.get("http://fastapi-api:8000/holdout_data", timeout=60)
+    resp = requests.get(f"{API_URL}/holdout_data", timeout=60)
     resp.raise_for_status()
     data = resp.json()
 
