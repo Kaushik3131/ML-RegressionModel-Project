@@ -3,6 +3,14 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.streamlit"
+      - "src/**"
+      - "app.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/**"
 
 jobs:
   build-and-deploy:
