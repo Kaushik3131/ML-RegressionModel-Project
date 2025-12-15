@@ -17,6 +17,7 @@ s3 = None
 MODEL_PATH: Path | None = None
 TRAIN_FE_PATH: Path | None = None
 TRAIN_FEATURE_COLUMNS: list[str] | None = None
+HOLDOUT_DATA = None
 
 
 def load_from_s3(key, local_path):
@@ -33,34 +34,32 @@ def load_from_s3(key, local_path):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global s3, MODEL_PATH, TRAIN_FE_PATH, TRAIN_FEATURE_COLUMNS
+    global s3, MODEL_PATH, TRAIN_FE_PATH, TRAIN_FEATURE_COLUMNS, HOLDOUT_DATA
 
-    print("🚀 Lifespan started")
-
-    # create S3 client at runtime
     s3 = boto3.client("s3", region_name=REGION)
-    print("✅ S3 client created")
 
-    # download artifacts
-    MODEL_PATH = Path(load_from_s3(
-        "models/xgb_best_model.pkl",
-        "models/xgb_best_model.pkl"
+    MODEL_PATH = Path(load_from_s3(...))
+    TRAIN_FE_PATH = Path(load_from_s3(...))
+
+    fe_path = Path(load_from_s3(
+        "processed/feature_engineered_holdout.csv",
+        "data/processed/feature_engineered_holdout.csv"
     ))
-    print("✅ Model loaded:", MODEL_PATH)
-
-    TRAIN_FE_PATH = Path(load_from_s3(
-        "processed/feature_engineered_train.csv",
-        "data/processed/feature_engineered_train.csv"
+    meta_path = Path(load_from_s3(
+        "processed/cleaning_holdout.csv",
+        "data/processed/cleaning_holdout.csv"
     ))
 
-    # load expected feature columns
-    if TRAIN_FE_PATH.exists():
-        _train_cols = pd.read_csv(TRAIN_FE_PATH, nrows=1)
-        TRAIN_FEATURE_COLUMNS = [
-            c for c in _train_cols.columns if c != "price"
-        ]
+    fe = pd.read_csv(fe_path)
+    meta = pd.read_csv(meta_path, parse_dates=["date"])[["date", "city_full"]]
+
+    HOLDOUT_DATA = {
+        "features": fe.to_dict(orient="records"),
+        "meta": meta.to_dict(orient="records"),
+    }
 
     yield
+
 
 # App
 # Instantiates the FastAPI app.
@@ -80,6 +79,11 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/holdout_data")
+def get_holdout_data():
+    return HOLDOUT_DATA
 
 
 @app.get("/ready")
