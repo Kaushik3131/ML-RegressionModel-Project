@@ -79,29 +79,33 @@ def root():
 
 @app.get("/health")
 def health():
-    # App started, but model not ready yet
-    if MODEL_PATH is None:
-        return {
-            "status": "starting",
-            "message": "Model not loaded yet"
-        }
+    return {"status": "ok"}
 
-    # Model path exists check
-    if not MODEL_PATH.exists():
-        return {
-            "status": "unhealthy",
-            "error": f"Model not found at {MODEL_PATH}"
-        }
+# @app.get("/health")
+# def health():
+#     # App started, but model not ready yet
+#     if MODEL_PATH is None:
+#         return {
+#             "status": "starting",
+#             "message": "Model not loaded yet"
+#         }
 
-    return {
-        "status": "healthy",
-        "model_path": str(MODEL_PATH),
-        "n_features_expected": (
-            len(TRAIN_FEATURE_COLUMNS)
-            if TRAIN_FEATURE_COLUMNS is not None
-            else None
-        )
-    }
+#     # Model path exists check
+#     if not MODEL_PATH.exists():
+#         return {
+#             "status": "unhealthy",
+#             "error": f"Model not found at {MODEL_PATH}"
+#         }
+
+#     return {
+#         "status": "healthy",
+#         "model_path": str(MODEL_PATH),
+#         "n_features_expected": (
+#             len(TRAIN_FEATURE_COLUMNS)
+#             if TRAIN_FEATURE_COLUMNS is not None
+#             else None
+#         )
+#     }
 
 # Prediction Endpoint: This is the core ML serving endpoint.
 
