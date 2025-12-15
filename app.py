@@ -9,10 +9,13 @@ from pathlib import Path
 # ============================
 # Config
 # ============================
-API_URL = os.environ.get(
-    "API_URL",
+BASE_API_URL = os.environ.get(
+    "API_BASE_URL",
     "http://127.0.0.1:8000"
 )
+
+PREDICT_URL = f"{BASE_API_URL}/predict"
+HOLDOUT_URL = f"{BASE_API_URL}/holdout_data"
 
 
 # ============================
@@ -21,7 +24,7 @@ API_URL = os.environ.get(
 
 @st.cache_data(show_spinner=False)
 def load_data():
-    resp = requests.get(f"{API_URL}/holdout_data", timeout=60)
+    resp = requests.get(HOLDOUT_URL, timeout=60)
     resp.raise_for_status()
     data = resp.json()
 
@@ -74,7 +77,7 @@ if st.button("Show Predictions 🚀"):
         payload = fe_df.loc[idx].to_dict(orient="records")
 
         try:
-            resp = requests.post(API_URL, json=payload, timeout=60)
+            resp = requests.post(PREDICT_URL, json=payload, timeout=60)
             resp.raise_for_status()
 
             out = resp.json()
@@ -124,7 +127,8 @@ if st.button("Show Predictions 🚀"):
                 idx_all = yearly_data.index
                 payload_all = fe_df.loc[idx_all].to_dict(orient="records")
 
-                resp_all = requests.post(API_URL, json=payload_all, timeout=60)
+                resp_all = requests.post(
+                    PREDICT_URL, json=payload_all, timeout=60)
                 resp_all.raise_for_status()
                 preds_all = resp_all.json().get("predictions", [])
 
@@ -139,7 +143,7 @@ if st.button("Show Predictions 🚀"):
                     orient="records")
 
                 resp_region = requests.post(
-                    API_URL, json=payload_region, timeout=60)
+                    PREDICT_URL, json=payload_region, timeout=60)
                 resp_region.raise_for_status()
                 preds_region = resp_region.json().get("predictions", [])
 
