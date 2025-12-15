@@ -157,28 +157,6 @@ def predict_batch(data: List[dict]):
     return resp
 
 
-@app.get("/holdout_data")
-def get_holdout_data():
-    fe_path = Path(load_from_s3(
-        "processed/feature_engineered_holdout.csv",
-        "data/processed/feature_engineered_holdout.csv"
-    ))
-
-    meta_path = Path(load_from_s3(
-        "processed/cleaning_holdout.csv",
-        "data/processed/cleaning_holdout.csv"
-    ))
-
-    fe = pd.read_csv(fe_path)
-    meta = pd.read_csv(meta_path, parse_dates=["date"])[
-        ["date", "city_full"]
-    ]
-
-    return {
-        "features": fe.to_dict(orient="records"),
-        "meta": meta.to_dict(orient="records"),
-    }
-
 # Batch runner
 
 # Trigger a monthly batch job via API.
