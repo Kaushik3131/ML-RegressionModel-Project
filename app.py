@@ -9,13 +9,15 @@ from pathlib import Path
 # ============================
 # Config
 # ============================
-API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000/predict")
+API_URL = os.environ.get(
+    "API_URL",
+    "http://127.0.0.1:8000"
+)
+
 
 # ============================
 # Data loading
 # ============================
-HOLDOUT_URL = API_URL.replace("/predict", "/holdout_data")
-
 
 @st.cache_data(show_spinner=False)
 def load_data():
