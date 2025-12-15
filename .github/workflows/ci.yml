@@ -10,7 +10,6 @@ on:
       - "app.py"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/**"
 
 jobs:
   build-and-deploy:
