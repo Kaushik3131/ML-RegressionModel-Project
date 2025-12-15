@@ -38,8 +38,15 @@ async def lifespan(app: FastAPI):
 
     s3 = boto3.client("s3", region_name=REGION)
 
-    MODEL_PATH = Path(load_from_s3(...))
-    TRAIN_FE_PATH = Path(load_from_s3(...))
+    MODEL_PATH = Path(load_from_s3(
+        "models/xgb_best_model.pkl",
+        "models/xgb_best_model.pkl"
+    ))
+
+    TRAIN_FE_PATH = Path(load_from_s3(
+        "processed/feature_engineered_train.csv",
+        "data/processed/feature_engineered_train.csv"
+    ))
 
     fe_path = Path(load_from_s3(
         "processed/feature_engineered_holdout.csv",
