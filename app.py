@@ -40,8 +40,15 @@ def load_data():
     return fe, disp
 
 
+fe_df = disp_df = None
+
 with st.spinner("Loading housing data…"):
-    fe_df, disp_df = load_data()
+    try:
+        fe_df, disp_df = load_data()
+    except Exception as e:
+        st.error("Backend API not ready yet. Please refresh in a moment.")
+        st.stop()
+
 
 # ============================
 # UI
