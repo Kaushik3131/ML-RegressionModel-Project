@@ -12,7 +12,9 @@
 
 An enterprise-grade machine learning pipeline for housing price prediction with automated training, hyperparameter tuning, and production deployment
 
-**🚀 [Live API](#) • [Streamlit Dashboard](#)**
+**🚀 [Live Streamlit Dashboard](http://housing-api-new-alb-83862003.ap-south-2.elb.amazonaws.com/dashboard/)**
+
+![Application Demo](docs/gif-demo.gif)
 
 [Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Architecture](#-architecture) • [Deployment](#-deployment)
 
