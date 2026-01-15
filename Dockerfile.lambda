@@ -3,9 +3,9 @@ FROM public.ecr.aws/lambda/python:3.11
 
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# Install runtime dependencies using pip (binary wheels only - no compilation)
-# This avoids GCC version issues
-RUN pip install --no-cache-dir \
+# Install runtime dependencies using ONLY pre-built binary wheels
+# --only-binary :all: prevents any source compilation
+RUN pip install --no-cache-dir --only-binary :all: \
     boto3==1.40.33 \
     fastapi==0.116.1 \
     mangum==0.20.0 \
