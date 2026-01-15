@@ -58,15 +58,6 @@ jobs:
           aws lambda wait function-updated \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --region ${{ env.AWS_REGION }}
-
-      - name: Get Function URL
-        run: |
-          FUNCTION_URL=$(aws lambda get-function-url-config \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --region ${{ env.AWS_REGION }} \
-            --query 'FunctionUrl' \
-            --output text)
           
           echo "🚀 Lambda function updated successfully!"
-          echo "🌐 Function URL: $FUNCTION_URL"
-          echo "📝 Test: ${FUNCTION_URL}health"
+          echo "📝 Note: Use API Gateway to access the function (Function URLs not supported in ap-south-2)"
