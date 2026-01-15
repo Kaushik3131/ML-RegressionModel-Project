@@ -18,11 +18,16 @@ Preprocessing: city normalization + (optional) lat/lng merge, duplicate drop, ou
 """
 
 import re
+import os
 from pathlib import Path
 import pandas as pd
 
-RAW_DIR = Path("data/raw")
-PROCESSED_DIR = Path("data/processed")
+# Use /tmp for Lambda (read-only filesystem elsewhere)
+# In local development, this will create /tmp/data directories
+# In Lambda, /tmp is the only writable location
+BASE_DIR = Path("/tmp") if os.getenv("AWS_LAMBDA_FUNCTION_NAME") else Path("data")
+RAW_DIR = BASE_DIR / "raw"
+PROCESSED_DIR = BASE_DIR / "processed"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 # Manual fixes for known mismatches (normalized form)
