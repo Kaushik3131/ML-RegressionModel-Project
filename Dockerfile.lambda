@@ -1,47 +1,32 @@
-# Stage 1: Builder - Install dependencies
-FROM public.ecr.aws/lambda/python:3.11 as builder
-
-WORKDIR /var/task
-
-# Install build dependencies (C++ compiler needed for some packages)
-RUN yum install -y gcc gcc-c++ && \
-    yum clean all
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
-
-# Install uv
-RUN pip install --no-cache-dir uv
-
-# Install only runtime dependencies (exclude dev dependencies and heavy packages)
-# We'll install specific packages needed for the API
-RUN uv pip install --system \
-    boto3>=1.40.33 \
-    fastapi>=0.116.1 \
-    mangum>=0.18.0 \
-    uvicorn>=0.32.1 \
-    pandas==2.1.1 \
-    numpy==1.26.4 \
-    scikit-learn>=1.7.1 \
-    xgboost==3.0.4 \
-    category-encoders>=2.8.1
-
-# Stage 2: Runtime - Minimal image
+# AWS Lambda Dockerfile - Optimized for ML deployment
 FROM public.ecr.aws/lambda/python:3.11
 
-WORKDIR /var/task
+WORKDIR ${LAMBDA_TASK_ROOT}
 
-# Copy installed packages from builder
-COPY --from=builder /var/lang/lib/python3.11/site-packages/ /var/lang/lib/python3.11/site-packages/
+# Install runtime dependencies using pip (binary wheels only - no compilation)
+# This avoids GCC version issues
+RUN pip install --no-cache-dir \
+    boto3==1.40.33 \
+    fastapi==0.116.1 \
+    mangum==0.20.0 \
+    uvicorn==0.32.1 \
+    pandas==2.1.1 \
+    numpy==1.26.4 \
+    scikit-learn==1.5.2 \
+    xgboost==2.1.3 \
+    category-encoders==2.6.4 \
+    joblib==1.4.2
 
 # Copy application code
 COPY src/ ${LAMBDA_TASK_ROOT}/src/
-COPY models/ ${LAMBDA_TASK_ROOT}/models/
+
+# Copy models directory (will be populated from S3 at runtime)
+RUN mkdir -p ${LAMBDA_TASK_ROOT}/models
 
 # Set Python path
 ENV PYTHONPATH="${LAMBDA_TASK_ROOT}:${PYTHONPATH}"
 
-# AWS Lambda configuration
+# AWS configuration
 ENV AWS_REGION=ap-south-2
 ENV S3_BUCKET=housing-regression-data31
 
