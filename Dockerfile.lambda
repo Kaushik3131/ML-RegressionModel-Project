@@ -3,27 +3,42 @@ FROM public.ecr.aws/lambda/python:3.11 as builder
 
 WORKDIR /var/task
 
+# Install build dependencies (C++ compiler needed for some packages)
+RUN yum install -y gcc gcc-c++ && \
+    yum clean all
+
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install uv and sync dependencies
-RUN pip install --no-cache-dir uv && \
-    uv sync --no-dev
+# Install uv
+RUN pip install --no-cache-dir uv
+
+# Install only runtime dependencies (exclude dev dependencies and heavy packages)
+# We'll install specific packages needed for the API
+RUN uv pip install --system \
+    boto3>=1.40.33 \
+    fastapi>=0.116.1 \
+    mangum>=0.18.0 \
+    uvicorn>=0.32.1 \
+    pandas==2.1.1 \
+    numpy==1.26.4 \
+    scikit-learn>=1.7.1 \
+    xgboost==3.0.4 \
+    category-encoders>=2.8.1
 
 # Stage 2: Runtime - Minimal image
 FROM public.ecr.aws/lambda/python:3.11
 
 WORKDIR /var/task
 
-# Copy installed dependencies from builder
-COPY --from=builder /var/task/.venv /var/task/.venv
+# Copy installed packages from builder
+COPY --from=builder /var/lang/lib/python3.11/site-packages/ /var/lang/lib/python3.11/site-packages/
 
 # Copy application code
 COPY src/ ${LAMBDA_TASK_ROOT}/src/
 COPY models/ ${LAMBDA_TASK_ROOT}/models/
 
-# Set Python path to use virtual environment
-ENV PATH="/var/task/.venv/bin:$PATH"
+# Set Python path
 ENV PYTHONPATH="${LAMBDA_TASK_ROOT}:${PYTHONPATH}"
 
 # AWS Lambda configuration
@@ -31,5 +46,4 @@ ENV AWS_REGION=ap-south-2
 ENV S3_BUCKET=housing-regression-data31
 
 # Lambda handler
-# Format: module.function_name
 CMD ["src.api.main.handler"]
