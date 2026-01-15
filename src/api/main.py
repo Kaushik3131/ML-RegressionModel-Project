@@ -188,3 +188,17 @@ def latest_predictions(limit: int = 5):
         "rows": int(len(df)),
         "preview": df.head(limit).to_dict(orient="records")
     }
+
+
+# ============================================================================
+# AWS Lambda Handler (2026 Best Practice)
+# ============================================================================
+# This handler allows the FastAPI app to run on AWS Lambda
+# Uses Mangum adapter to convert Lambda events to ASGI format
+# ============================================================================
+
+from mangum import Mangum
+
+# Lambda handler - entry point for AWS Lambda
+# Set lifespan="off" to prevent issues with Lambda's execution model
+handler = Mangum(app, lifespan="off")
