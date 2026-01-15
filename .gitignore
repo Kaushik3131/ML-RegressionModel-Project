@@ -49,3 +49,5 @@ Thumbs.db
 
 /Python_scripts/    
 /LAMBDA_QUICKSTART.md
+/GITHUB_ACTIONS_SETUP.md
+.github\workflows\ci.yml
